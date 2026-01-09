@@ -15,6 +15,7 @@ interface TextFieldInputProps {
   value: string;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   style?: React.CSSProperties;
+  disabled?: boolean;
 }
 
 const TextFieldComponent: React.FC<TextFieldProps> = ({ 
@@ -47,7 +48,7 @@ const TextFieldComponent: React.FC<TextFieldProps> = ({
 };
 
 export const TextFieldInput = React.forwardRef<HTMLInputElement, TextFieldInputProps>(
-  ({ placeholder, value, onChange, style }, ref) => {
+  ({ placeholder, value, onChange, style, disabled }, ref) => {
     const containerRef = React.useRef<HTMLDivElement>(null);
 
     const handleFocus = () => {
@@ -81,6 +82,7 @@ export const TextFieldInput = React.forwardRef<HTMLInputElement, TextFieldInputP
             onChange={onChange}
             onFocus={handleFocus}
             onBlur={handleBlur}
+            disabled={disabled}
             style={style}
             className="h-full w-full border-none bg-transparent text-sm outline-none placeholder:text-gray-400 text-gray-800"
           />
