@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight, Clock, Paperclip, Star, Wand2 } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Clock, Paperclip, Star, Wand2, Square } from 'lucide-react';
 import TextField, { TextFieldInput } from './TextField';
 import IconButton from './IconButton';
 import PrompterMenu from './PrompterMenu';
@@ -34,6 +34,10 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position,
   const [previewText, setPreviewText] = useState('');
   const [usedPrompt, setUsedPrompt] = useState<string>('');
   const [isPromptStarred, setIsPromptStarred] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingEllipses, setLoadingEllipses] = useState('');
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const ellipsesIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const prompterRef = useRef<HTMLDivElement>(null);
   const textFieldRef = useRef<HTMLInputElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
@@ -113,22 +117,94 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position,
 
 
   const handleSparklesClick = () => {
+    // If already loading, stop it
+    if (isLoading) {
+      handleStopGeneration();
+      return;
+    }
+
+    // Start loading
+    setIsLoading(true);
+    setShowMenu(false);
+    
     // Store the prompt that was used
     const fullPrompt = inputValue.trim() || 'Edit the selected text';
     setUsedPrompt(fullPrompt);
     
-    // Generate mock preview text (in real app, this would be an AI call)
-    // For now, we'll create a simple mock response
-    const mockPreview = `[AI Generated Preview]\n\n${isPreviewMode ? previewText : selectedText}\n\n[This is a preview of the edited text based on your prompt: "${fullPrompt}"]`;
-    setPreviewText(mockPreview);
-    
-    // Enter preview mode (or stay in it if already there)
-    setIsPreviewMode(true);
-    setShowMenu(false);
-    
     // Clear the input for reprompting
     setInputValue('');
+    
+    // Simulate 2 second loading (for prototype)
+    loadingTimeoutRef.current = setTimeout(() => {
+      // Generate mock preview text (in real app, this would be an AI call)
+      const mockPreview = `[AI Generated Preview]\n\n${isPreviewMode ? previewText : selectedText}\n\n[This is a preview of the edited text based on your prompt: "${fullPrompt}"]`;
+      setPreviewText(mockPreview);
+      
+      // Enter preview mode (or stay in it if already there)
+      setIsPreviewMode(true);
+      
+      // Stop loading
+      setIsLoading(false);
+      loadingTimeoutRef.current = null;
+      
+      // Clear ellipses animation
+      if (ellipsesIntervalRef.current) {
+        clearInterval(ellipsesIntervalRef.current);
+        ellipsesIntervalRef.current = null;
+      }
+      setLoadingEllipses('');
+    }, 2000);
   };
+
+  const handleStopGeneration = () => {
+    // Clear the loading timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
+    // Clear ellipses animation
+    if (ellipsesIntervalRef.current) {
+      clearInterval(ellipsesIntervalRef.current);
+      ellipsesIntervalRef.current = null;
+    }
+    // Stop loading
+    setIsLoading(false);
+    setLoadingEllipses('');
+  };
+
+  // Animate ellipses during loading
+  useEffect(() => {
+    if (isLoading) {
+      let count = 0;
+      ellipsesIntervalRef.current = setInterval(() => {
+        count = (count + 1) % 4;
+        setLoadingEllipses('.'.repeat(count));
+      }, 500);
+    } else {
+      if (ellipsesIntervalRef.current) {
+        clearInterval(ellipsesIntervalRef.current);
+        ellipsesIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (ellipsesIntervalRef.current) {
+        clearInterval(ellipsesIntervalRef.current);
+      }
+    };
+  }, [isLoading]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      if (ellipsesIntervalRef.current) {
+        clearInterval(ellipsesIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleCancel = () => {
     // Exit preview mode and reset
@@ -295,14 +371,17 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position,
                   <TextFieldInput
                     ref={textFieldRef}
                     placeholder={
-                      isPreviewMode 
-                        ? "Ask for another edit ..." 
-                        : references.length > 0 
-                          ? "Provide additional instructions to guide the AI ..." 
-                          : "Ask AI to edit or generate ... (type '/' to search actions)"
+                      isLoading
+                        ? `Generating text${loadingEllipses}`
+                        : isPreviewMode 
+                          ? "Ask for another edit ..." 
+                          : references.length > 0 
+                            ? "Provide additional instructions to guide the AI ..." 
+                            : "Describe your change or type '/' to search actions ..."
                     }
                     value={inputValue}
                     onChange={handleInputChange}
+                    disabled={isLoading}
                     style={{
                       paddingRight: references.length > 0 ? '80px' : undefined
                     }}
@@ -318,11 +397,11 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position,
                           setShowReferenceSelector(true);
                         }
                       }}
-                      className="flex items-center gap-1.5 rounded-md border border-solid border-neutral-border bg-neutral-50 px-2 py-1 shadow-sm hover:bg-neutral-100 transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 rounded-md border border-solid border-neutral-border bg-neutral-50 px-2 py-0.5 shadow-sm hover:bg-neutral-100 transition-colors cursor-pointer"
                       title="Edit references"
                     >
-                      <Paperclip size={14} className="text-gray-600 flex-shrink-0" />
-                      <span className="text-xs font-medium text-gray-700 whitespace-nowrap flex-shrink-0">
+                      <Paperclip size={12} className="text-gray-600 flex-shrink-0" />
+                      <span className="text-xs font-medium text-gray-700 whitespace-nowrap flex-shrink-0" style={{ fontSize: '12px' }}>
                         {references.length}
                       </span>
                     </button>
@@ -350,7 +429,17 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position,
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   onClick={handleCancel}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                  className="px-3 py-1.5 text-sm font-medium text-black rounded-full transition-all duration-200"
+                  style={{
+                    backgroundColor: '#DEDEE9',
+                    transition: 'background-color 0.2s, border-color 0.2s, color 0.2s, fill 0.2s, stroke 0.2s, opacity 0.2s, box-shadow 0.2s, transform 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#D0D0DD';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#DEDEE9';
+                  }}
                 >
                   Cancel
                 </button>
@@ -358,13 +447,23 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position,
                   <IconButton
                     variant="brand-primary"
                     size="medium"
-                    icon={ArrowRight}
+                    icon={isLoading ? Square : ArrowRight}
                     onClick={handleSparklesClick}
                   />
                 ) : (
                   <button
                     onClick={handleApply}
-                    className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
+                    className="px-3 py-1.5 text-sm font-medium text-white rounded-full transition-all duration-200"
+                    style={{
+                      backgroundColor: 'rgb(0, 0, 139)',
+                      transition: 'background-color 0.2s, border-color 0.2s, color 0.2s, fill 0.2s, stroke 0.2s, opacity 0.2s, box-shadow 0.2s, transform 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgb(0, 0, 120)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgb(0, 0, 139)';
+                    }}
                   >
                     Apply
                   </button>
@@ -374,7 +473,7 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position,
               <IconButton
                 variant="brand-primary"
                 size="medium"
-                icon={ArrowRight}
+                icon={isLoading ? Square : ArrowRight}
                 onClick={handleSparklesClick}
               />
             )}

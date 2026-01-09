@@ -48,16 +48,44 @@ const TextFieldComponent: React.FC<TextFieldProps> = ({
 
 export const TextFieldInput = React.forwardRef<HTMLInputElement, TextFieldInputProps>(
   ({ placeholder, value, onChange, style }, ref) => {
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    const handleFocus = () => {
+      if (containerRef.current) {
+        containerRef.current.style.borderWidth = '2px';
+        containerRef.current.style.borderColor = 'rgb(49, 130, 206)';
+      }
+    };
+
+    const handleBlur = () => {
+      if (containerRef.current) {
+        containerRef.current.style.borderWidth = '';
+        containerRef.current.style.borderColor = '';
+      }
+    };
+
     return (
-      <input
-        ref={ref}
-        type="text"
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        style={style}
-        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-black"
-      />
+      <div 
+        ref={containerRef}
+        className="flex h-8 w-full flex-none items-center gap-1 rounded-md border border-solid bg-white px-2"
+        style={{
+          borderColor: 'rgb(228, 228, 231)'
+        }}
+      >
+        <div className="flex grow shrink-0 basis-0 flex-col items-start self-stretch px-1">
+          <input
+            ref={ref}
+            type="text"
+            placeholder={placeholder}
+            value={value}
+            onChange={onChange}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            style={style}
+            className="h-full w-full border-none bg-transparent text-sm outline-none placeholder:text-gray-400 text-gray-800"
+          />
+        </div>
+      </div>
     );
   }
 );

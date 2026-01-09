@@ -9,11 +9,20 @@ interface IconButtonProps {
 }
 
 const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(({ variant, size, icon, onClick }, ref) => {
-  const baseStyles = 'inline-flex items-center justify-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2';
+  const baseStyles = 'inline-flex items-center justify-center rounded-full focus:outline-none';
   
   const variantStyles = {
-    'brand-primary': 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
-    'neutral-tertiary': 'bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-500'
+    'brand-primary': 'text-white',
+    'neutral-tertiary': 'bg-transparent text-gray-600 hover:bg-gray-100'
+  };
+  
+  const brandPrimaryStyle: React.CSSProperties = {
+    backgroundColor: 'rgb(0, 0, 139)',
+    transition: 'background-color 0.2s, border-color 0.2s, color 0.2s, fill 0.2s, stroke 0.2s, opacity 0.2s, box-shadow 0.2s, transform 0.2s'
+  };
+  
+  const brandPrimaryHoverStyle: React.CSSProperties = {
+    backgroundColor: 'rgb(0, 0, 120)' // Slightly darker on hover
   };
   
   const sizeStyles = {
@@ -51,11 +60,33 @@ const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(({ varia
     }
   };
 
+  const getButtonStyle = (): React.CSSProperties => {
+    if (variant === 'brand-primary') {
+      return brandPrimaryStyle;
+    }
+    return {};
+  };
+
+  const handleMouseEnter = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (variant === 'brand-primary') {
+      Object.assign(e.currentTarget.style, brandPrimaryHoverStyle);
+    }
+  };
+
+  const handleMouseLeave = (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (variant === 'brand-primary') {
+      Object.assign(e.currentTarget.style, brandPrimaryStyle);
+    }
+  };
+
   return (
     <button
       ref={ref}
       className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]}`}
+      style={getButtonStyle()}
       onClick={onClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       type="button"
     >
       {renderIcon()}

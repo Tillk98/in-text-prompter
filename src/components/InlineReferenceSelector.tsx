@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { X, ChevronDown } from 'lucide-react';
+import { X, ChevronDown, Search, Check } from 'lucide-react';
 import { Reference, ReferenceCategory } from '../types/prompter';
 
 interface InlineReferenceSelectorProps {
@@ -30,6 +30,7 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
   const [showViewDropdown, setShowViewDropdown] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -263,20 +264,53 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
               e.stopPropagation();
               onClose();
             }}
-            className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-black rounded-full transition-all duration-200"
+            style={{
+              backgroundColor: '#DEDEE9',
+              transition: 'background-color 0.2s, border-color 0.2s, color 0.2s, fill 0.2s, stroke 0.2s, opacity 0.2s, box-shadow 0.2s, transform 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#D0D0DD';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#DEDEE9';
+            }}
             title="Done"
           >
             Done
           </button>
         </div>
-        <input
-          ref={searchInputRef}
-          type="text"
-          placeholder="Search references..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-black"
-        />
+        <div 
+          ref={searchContainerRef}
+          className="flex h-8 w-full flex-none items-center gap-1 rounded-md border border-solid bg-white px-2"
+          style={{
+            borderColor: 'rgb(228, 228, 231)'
+          }}
+        >
+          <Search size={16} className="text-gray-500 flex-shrink-0" />
+          <div className="flex grow shrink-0 basis-0 flex-col items-start self-stretch px-1">
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => {
+                if (searchContainerRef.current) {
+                  searchContainerRef.current.style.borderWidth = '2px';
+                  searchContainerRef.current.style.borderColor = 'rgb(49, 130, 206)';
+                }
+              }}
+              onBlur={() => {
+                if (searchContainerRef.current) {
+                  searchContainerRef.current.style.borderWidth = '';
+                  searchContainerRef.current.style.borderColor = '';
+                }
+              }}
+              className="h-full w-full border-none bg-transparent text-sm outline-none placeholder:text-gray-400 text-gray-800"
+            />
+          </div>
+        </div>
         {selectedReferences.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
             {selectedReferences.map((reference) => (
@@ -301,81 +335,99 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex max-h-[384px] w-full flex-col items-start gap-4 px-4 py-4 overflow-y-auto">
         {!hasAnyReferences ? (
           <div className="text-center text-gray-500 py-8 text-sm">
             {searchQuery ? 'No references found' : 'No references available'}
           </div>
         ) : (
-          <div className="p-2">
+          <>
             {(Object.keys(categoryLabels) as ReferenceCategory[]).map((category) => {
               const references = groupedReferences[category];
               if (references.length === 0) return null;
 
+              // Map category to letter prefix
+              const categoryPrefix: Record<ReferenceCategory, string> = {
+                'applicant-resume': 'A',
+                'identity-biographic': 'B',
+                'personal-statement': 'C',
+                'employer-documents': 'D'
+              };
+              const prefix = categoryPrefix[category] || '';
+
               return (
-                <div key={category} className="mb-4 last:mb-0">
-                  <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <div key={category} className="flex w-full flex-col items-start gap-3">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     {categoryLabels[category]}
-                  </div>
-                  <div className="mt-1 space-y-1">
-                    {references.map((reference) => {
+                  </span>
+                  <div className="flex w-full flex-col items-start gap-0.5">
+                    {references.map((reference, index) => {
                       const selected = isSelected(reference.id);
+                      const label = `${prefix}.${index + 1}`;
+                      
                       return (
-                        <label
+                        <div
                           key={reference.id}
                           onClick={(e) => {
-                            e.preventDefault();
                             e.stopPropagation();
+                            if (selected) {
+                              onRemoveReference(reference.id);
+                            } else {
+                              onSelectReference(reference);
+                            }
                           }}
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                          }}
-                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-md border transition-colors cursor-pointer ${
+                          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 cursor-pointer transition-colors ${
                             selected
-                              ? 'bg-blue-50 border-blue-200'
-                              : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                              ? 'bg-blue-50 hover:bg-blue-100'
+                              : 'hover:bg-gray-50'
                           }`}
                         >
-                          <div className="relative flex-shrink-0">
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                if (selected) {
-                                  onRemoveReference(reference.id);
-                                } else {
-                                  onSelectReference(reference);
-                                }
-                              }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                              }}
-                              className="w-4 h-4 appearance-none border-2 border-gray-300 rounded cursor-pointer checked:bg-gray-600 checked:border-gray-600 focus:ring-2 focus:ring-gray-500 focus:ring-offset-0"
-                              style={{
-                                backgroundImage: selected ? "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='white' d='M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z'/%3E%3C/svg%3E\")" : 'none',
-                                backgroundSize: 'contain',
-                                backgroundRepeat: 'no-repeat',
-                                backgroundPosition: 'center'
-                              }}
-                            />
+                          <div 
+                            className="flex-shrink-0 flex items-center justify-center cursor-pointer"
+                            style={{
+                              width: '20px',
+                              height: '20px',
+                              border: '2px solid rgb(226, 232, 240)',
+                              borderRadius: '2px',
+                              backgroundColor: selected ? 'rgb(0, 0, 139)' : 'transparent',
+                              transition: 'box-shadow 0.2s',
+                              boxSizing: 'border-box'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (selected) {
+                                onRemoveReference(reference.id);
+                              } else {
+                                onSelectReference(reference);
+                              }
+                            }}
+                          >
+                            {selected && (
+                              <Check size={14} className="text-white" strokeWidth={3} />
+                            )}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-sm font-medium truncate ${selected ? 'text-blue-900' : 'text-gray-700'}`}>
-                              {reference.name}
-                            </div>
-                          </div>
-                        </label>
+                          <span className={`w-8 flex-none text-xs ${
+                            selected
+                              ? 'text-blue-600 font-semibold'
+                              : 'text-gray-500'
+                          }`}>
+                            {label}
+                          </span>
+                          <span className={`text-xs flex-1 ${
+                            selected
+                              ? 'text-blue-600 font-semibold'
+                              : 'text-gray-700'
+                          }`}>
+                            {reference.name}
+                          </span>
+                        </div>
                       );
                     })}
                   </div>
                 </div>
               );
             })}
-          </div>
+          </>
         )}
       </div>
     </div>
