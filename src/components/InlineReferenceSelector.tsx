@@ -10,6 +10,7 @@ interface InlineReferenceSelectorProps {
   onRemoveReference: (referenceId: string) => void;
   onClose: () => void;
   prompterRef: React.RefObject<HTMLDivElement>;
+  inputContainerRef?: React.RefObject<HTMLDivElement> | null;
   prompterWidth?: number;
 }
 
@@ -21,6 +22,7 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
   onRemoveReference,
   onClose,
   prompterRef,
+  inputContainerRef,
   prompterWidth
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,7 +34,19 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
 
   useEffect(() => {
     if (isOpen && searchInputRef.current) {
-      searchInputRef.current.focus();
+      // Store current scroll position
+      const scrollY = window.scrollY;
+      const scrollX = window.scrollX;
+      
+      // Focus the input without scrolling
+      searchInputRef.current.focus({ preventScroll: true });
+      
+      // Restore scroll position if it changed (fallback for browsers that don't support preventScroll)
+      requestAnimationFrame(() => {
+        if (window.scrollY !== scrollY || window.scrollX !== scrollX) {
+          window.scrollTo(scrollX, scrollY);
+        }
+      });
     }
   }, [isOpen]);
 
@@ -74,35 +88,40 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
   }, [isOpen, onClose, prompterRef]);
 
   const updateSelectorPosition = () => {
-    // Position the selector below the entire prompter
-    if (isOpen && selectorRef.current && prompterRef.current) {
-      const prompterRect = prompterRef.current.getBoundingClientRect();
+    // Position the selector below the target (input field in preview mode, or entire prompter otherwise)
+    if (isOpen && selectorRef.current) {
+      // If inputContainerRef is provided (preview mode), position relative to input field
+      // Otherwise, position relative to entire prompter
+      const targetRef = inputContainerRef?.current || prompterRef.current;
+      if (!targetRef) return;
       
-      // Get prompter's document position: convert viewport coordinates to document coordinates
-      const prompterTop = prompterRect.top + window.scrollY;
-      const prompterLeft = prompterRect.left + window.scrollX;
-      const prompterHeight = prompterRect.height;
+      const targetRect = targetRef.getBoundingClientRect();
       
-      // Always position selector below the prompter (absolute positioning)
+      // Use viewport coordinates directly since we're using fixed positioning
+      const targetTop = targetRect.top;
+      const targetLeft = targetRect.left;
+      const targetHeight = targetRect.height;
+      
+      // Position selector below the target (fixed positioning)
       // Use a small gap to ensure it doesn't overlap
       const gap = 4;
-      // Position relative to prompter's document position
-      let top = prompterTop + prompterHeight + gap;
-      let left = prompterLeft;
+      // Position relative to target's viewport position
+      let top = targetTop + targetHeight + gap;
+      let left = targetLeft;
 
       // Adjust if selector would go off screen horizontally (check in viewport)
       const selectorWidth = prompterWidth || selectorRef.current.offsetWidth || 400;
-      const viewportLeft = prompterRect.left;
+      const viewportLeft = targetRect.left;
       if (viewportLeft + selectorWidth > window.innerWidth) {
-        left = prompterLeft - (viewportLeft + selectorWidth - window.innerWidth) - 10;
+        left = targetLeft - (viewportLeft + selectorWidth - window.innerWidth) - 10;
       }
       if (viewportLeft < 10) {
-        left = prompterLeft - (viewportLeft - 10);
+        left = targetLeft - (viewportLeft - 10);
       }
 
       // Adjust if selector would go off screen vertically - but keep it below
       const selectorHeight = selectorRef.current.offsetHeight || 400;
-      const viewportBottom = prompterRect.bottom;
+      const viewportBottom = targetRect.bottom;
       if (viewportBottom + gap + selectorHeight > window.innerHeight) {
         // If there's not enough space below, reduce the selector height or scroll
         // But always keep it below the prompter
@@ -118,8 +137,13 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
   };
 
   useEffect(() => {
-    updateSelectorPosition();
-  }, [isOpen, prompterRef, prompterWidth]);
+    if (isOpen) {
+      // Use requestAnimationFrame to ensure prompter position is set
+      requestAnimationFrame(() => {
+        updateSelectorPosition();
+      });
+    }
+  }, [isOpen, prompterRef, inputContainerRef, prompterWidth]);
 
   // Update position on scroll/resize
   useEffect(() => {
@@ -135,7 +159,7 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
       window.removeEventListener('scroll', handleUpdate, false);
       window.removeEventListener('resize', handleUpdate);
     };
-  }, [isOpen, prompterRef, prompterWidth]);
+  }, [isOpen, prompterRef, inputContainerRef, prompterWidth]);
 
   const categoryLabels: Record<ReferenceCategory, string> = {
     'applicant-resume': 'Applicant Resume',
@@ -181,7 +205,7 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
     <div
       ref={selectorRef}
       data-in-text-prompter
-      className="absolute bg-white border border-gray-200 rounded-md shadow-lg z-[60] max-h-[400px] flex flex-col"
+      className="fixed bg-white border border-gray-200 rounded-md shadow-lg z-[60] max-h-[400px] flex flex-col"
       style={{ 
         width: prompterWidth ? `${prompterWidth}px` : '400px',
         minWidth: '400px',
@@ -239,10 +263,10 @@ const InlineReferenceSelector: React.FC<InlineReferenceSelectorProps> = ({
               e.stopPropagation();
               onClose();
             }}
-            className="flex-shrink-0 p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-            title="Close"
+            className="flex-shrink-0 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            title="Done"
           >
-            <X size={16} />
+            Done
           </button>
         </div>
         <input

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, Clock, Paperclip } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Clock, Paperclip, Star, Wand2 } from 'lucide-react';
 import TextField, { TextFieldInput } from './TextField';
 import IconButton from './IconButton';
 import PrompterMenu from './PrompterMenu';
@@ -21,7 +21,7 @@ interface InTextPrompterProps {
   onClose: () => void;
 }
 
-const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position }) => {
+const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position, onClose }) => {
   const [inputValue, setInputValue] = useState('');
   const [references, setReferences] = useState<Reference[]>([]);
   const [showMenu, setShowMenu] = useState(false);
@@ -30,9 +30,15 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position 
   const [recentActions, setRecentActions] = useState<(QuickAction | SavedPrompt | CaseblinkPrompt)[]>([]);
   const [promptsScrollPosition, setPromptsScrollPosition] = useState(0);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [previewText, setPreviewText] = useState('');
+  const [usedPrompt, setUsedPrompt] = useState<string>('');
+  const [isPromptStarred, setIsPromptStarred] = useState(false);
   const prompterRef = useRef<HTMLDivElement>(null);
   const textFieldRef = useRef<HTMLInputElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
   const promptsContainerRef = useRef<HTMLDivElement>(null);
+  const previewTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     // Position the prompter below the selected text
@@ -107,8 +113,52 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position 
 
 
   const handleSparklesClick = () => {
-    // Handle AI generation
-    console.log('Generate AI content with:', { selectedText, inputValue, references });
+    // Store the prompt that was used
+    const fullPrompt = inputValue.trim() || 'Edit the selected text';
+    setUsedPrompt(fullPrompt);
+    
+    // Generate mock preview text (in real app, this would be an AI call)
+    // For now, we'll create a simple mock response
+    const mockPreview = `[AI Generated Preview]\n\n${isPreviewMode ? previewText : selectedText}\n\n[This is a preview of the edited text based on your prompt: "${fullPrompt}"]`;
+    setPreviewText(mockPreview);
+    
+    // Enter preview mode (or stay in it if already there)
+    setIsPreviewMode(true);
+    setShowMenu(false);
+    
+    // Clear the input for reprompting
+    setInputValue('');
+  };
+
+  const handleCancel = () => {
+    // Exit preview mode and reset
+    setIsPreviewMode(false);
+    setPreviewText('');
+    setUsedPrompt('');
+    setIsPromptStarred(false);
+    setInputValue('');
+    // Close the prompter entirely
+    onClose();
+  };
+
+  const handleApply = () => {
+    // Apply the preview text (in real app, this would replace the selected text)
+    console.log('Applying preview text:', previewText);
+    // Exit preview mode and reset
+    setIsPreviewMode(false);
+    setPreviewText('');
+    setUsedPrompt('');
+    setIsPromptStarred(false);
+    setInputValue('');
+    // Close the prompter entirely
+    onClose();
+  };
+
+  const handleToggleUsedPromptStar = () => {
+    // Toggle star state
+    setIsPromptStarred(!isPromptStarred);
+    // In real app, this would save the prompt to My Prompts
+    console.log('Starred prompt:', usedPrompt);
   };
 
 
@@ -233,7 +283,7 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position 
         <div className="flex flex-col items-center gap-2 w-full min-w-0 flex-1" style={{ width: '100%', maxWidth: '100%' }}>
           <div className="flex w-full items-center gap-2 min-w-0">
             <div className="relative flex-1 min-w-0" style={{ overflow: 'visible' }}>
-              <div className="relative w-full" style={{ overflow: 'visible' }}>
+              <div ref={inputContainerRef} className="relative w-full" style={{ overflow: 'visible' }}>
                 <TextField
                   className="h-auto grow shrink-0 basis-0"
                   variant="filled"
@@ -244,7 +294,13 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position 
                 >
                   <TextFieldInput
                     ref={textFieldRef}
-                    placeholder={references.length > 0 ? "Provide additional instructions to guide the AI ..." : "Ask AI to edit or generate ... (type '/' to search actions)"}
+                    placeholder={
+                      isPreviewMode 
+                        ? "Ask for another edit ..." 
+                        : references.length > 0 
+                          ? "Provide additional instructions to guide the AI ..." 
+                          : "Ask AI to edit or generate ... (type '/' to search actions)"
+                    }
                     value={inputValue}
                     onChange={handleInputChange}
                     style={{
@@ -277,6 +333,7 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position 
                 isOpen={showMenu}
                 onClose={() => setShowMenu(false)}
                 prompterRef={prompterRef}
+                inputContainerRef={isPreviewMode ? inputContainerRef : null}
                 quickActions={mockQuickActions}
                 savedPrompts={mockSavedPrompts}
                 caseblinkPrompts={mockCaseblinkPrompts}
@@ -289,138 +346,204 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position 
                 starredPromptIds={starredPromptIds}
               />
             </div>
-            <IconButton
-              variant="brand-primary"
-              size="medium"
-              icon={Sparkles}
-              onClick={handleSparklesClick}
-            />
-          </div>
-          {/* Recent Actions Section */}
-          <div className="w-full py-1 relative min-w-0" style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
-            <div className="flex items-center gap-2 px-1 min-w-0" style={{ width: '100%', maxWidth: '100%' }}>
-              <Clock size={14} className="text-gray-500 flex-shrink-0" />
-              <span className="text-xs font-medium text-gray-700 flex-shrink-0">Recent Actions</span>
-              <div className="h-3 w-px bg-gray-300 flex-shrink-0"></div>
-              {recentActions.length === 0 ? (
-                <p className="text-xs text-gray-400 flex-shrink-0">
-                  This is where your recent actions will appear.
-                </p>
-              ) : (
-                <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
-                  {recentActions.length > 0 && promptsScrollPosition > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (promptsContainerRef.current) {
-                          const container = promptsContainerRef.current;
-                          const children = Array.from(container.children) as HTMLElement[];
-                          if (children.length === 0) return;
-                          
-                          // Find the first visible tag and scroll to show the previous one
-                          let scrollAmount = 0;
-                          const containerLeft = container.scrollLeft;
-                          
-                          for (let i = 0; i < children.length; i++) {
-                            const child = children[i];
-                            const childLeft = child.offsetLeft;
-                            
-                            // If this tag is at or past the visible area, scroll to show the previous one
-                            if (childLeft >= containerLeft) {
-                              if (i > 0) {
-                                // Scroll to show the previous tag
-                                const prevChild = children[i - 1] as HTMLElement;
-                                scrollAmount = prevChild.offsetLeft - container.scrollLeft;
-                              } else {
-                                // Already at the first tag, scroll to the beginning
-                                scrollAmount = -container.scrollLeft;
-                              }
-                              break;
-                            }
-                          }
-                          
-                          container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-                        }
-                      }}
-                      className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 transition-colors"
-                      title="Scroll left"
-                    >
-                      <ChevronLeft size={14} className="text-gray-500" />
-                    </button>
-                  )}
-                  <div
-                    ref={promptsContainerRef}
-                    className="flex gap-1 flex-1 overflow-x-auto min-w-0"
-                    style={{ 
-                      scrollbarWidth: 'none', 
-                      msOverflowStyle: 'none'
-                    }}
-                    onScroll={(e) => {
-                      const target = e.target as HTMLDivElement;
-                      setPromptsScrollPosition(target.scrollLeft);
-                    }}
+            {isPreviewMode ? (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={handleCancel}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+                {inputValue.trim() ? (
+                  <IconButton
+                    variant="brand-primary"
+                    size="medium"
+                    icon={ArrowRight}
+                    onClick={handleSparklesClick}
+                  />
+                ) : (
+                  <button
+                    onClick={handleApply}
+                    className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors"
                   >
-                    {recentActions.map((prompt) => (
-                      <button
-                        key={prompt.id}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const newValue = inputValue + ' ' + prompt.prompt;
-                          setInputValue(newValue);
-                          if (textFieldRef.current) {
-                            textFieldRef.current.focus();
-                          }
-                        }}
-                        className="flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap flex-shrink-0"
-                      >
-                        <span>{prompt.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {recentActions.length > 0 && canScrollRight && (
+                    Apply
+                  </button>
+                )}
+              </div>
+            ) : (
+              <IconButton
+                variant="brand-primary"
+                size="medium"
+                icon={ArrowRight}
+                onClick={handleSparklesClick}
+              />
+            )}
+          </div>
+          {/* Preview Mode or Recent Actions Section */}
+          {isPreviewMode ? (
+            <div className="w-full py-1 relative min-w-0" style={{ width: '100%', maxWidth: '100%' }}>
+              {/* Preview Textarea */}
+              <textarea
+                ref={previewTextareaRef}
+                value={previewText}
+                onChange={(e) => setPreviewText(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-black resize-none"
+                rows={6}
+                placeholder="Preview of edited text..."
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+              />
+              
+              {/* Used Prompt Section */}
+              {usedPrompt && (
+                <div className="mt-2 px-3 py-2 bg-gray-50 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <Wand2 size={14} className="text-gray-500 flex-shrink-0" />
+                    <span className="text-xs text-gray-700 flex-1 min-w-0 break-words">&ldquo;{usedPrompt}&rdquo;</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (promptsContainerRef.current) {
-                          const container = promptsContainerRef.current;
-                          const children = Array.from(container.children) as HTMLElement[];
-                          if (children.length === 0) return;
-                          
-                          // Find the first tag that's not fully visible
-                          let scrollAmount = 0;
-                          const containerLeft = container.scrollLeft;
-                          const containerRight = containerLeft + container.clientWidth;
-                          
-                          for (let i = 0; i < children.length; i++) {
-                            const child = children[i];
-                            const childLeft = child.offsetLeft;
-                            const childRight = childLeft + child.offsetWidth;
-                            
-                            // If this tag is partially visible or just out of view, scroll to show the next one
-                            if (childRight > containerRight || (childLeft >= containerLeft && childRight > containerRight)) {
-                              scrollAmount = childLeft - container.scrollLeft;
-                              break;
-                            }
-                            
-                            // If we're at the last tag and it's fully visible, scroll to the end
-                            if (i === children.length - 1 && childRight <= containerRight) {
-                              scrollAmount = container.scrollWidth - container.scrollLeft - container.clientWidth;
-                            }
-                          }
-                          
-                          container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-                        }
+                        handleToggleUsedPromptStar();
                       }}
-                      className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 transition-colors"
-                      title="Scroll right"
+                      className="flex-shrink-0 p-1 rounded hover:bg-gray-200 transition-colors"
+                      title={isPromptStarred ? "Remove from My Prompts" : "Add to My Prompts"}
                     >
-                      <ChevronRight size={14} className="text-gray-500" />
+                      <Star 
+                        size={14} 
+                        className={isPromptStarred ? "text-yellow-500 fill-yellow-500" : "text-gray-400"}
+                        fill={isPromptStarred ? "currentColor" : "none"}
+                      />
                     </button>
-                  )}
+                  </div>
                 </div>
               )}
             </div>
-          </div>
+          ) : (
+            <div className="w-full py-1 relative min-w-0" style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+              <div className="flex items-center gap-2 px-1 min-w-0" style={{ width: '100%', maxWidth: '100%' }}>
+                <Clock size={14} className="text-gray-500 flex-shrink-0" />
+                <span className="text-xs font-medium text-gray-700 flex-shrink-0">Recent Actions</span>
+                <div className="h-3 w-px bg-gray-300 flex-shrink-0"></div>
+                {recentActions.length === 0 ? (
+                  <p className="text-xs text-gray-400 flex-shrink-0">
+                    This is where your recent actions will appear.
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
+                    {recentActions.length > 0 && promptsScrollPosition > 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (promptsContainerRef.current) {
+                            const container = promptsContainerRef.current;
+                            const children = Array.from(container.children) as HTMLElement[];
+                            if (children.length === 0) return;
+                            
+                            // Find the first visible tag and scroll to show the previous one
+                            let scrollAmount = 0;
+                            const containerLeft = container.scrollLeft;
+                            
+                            for (let i = 0; i < children.length; i++) {
+                              const child = children[i];
+                              const childLeft = child.offsetLeft;
+                              
+                              // If this tag is at or past the visible area, scroll to show the previous one
+                              if (childLeft >= containerLeft) {
+                                if (i > 0) {
+                                  // Scroll to show the previous tag
+                                  const prevChild = children[i - 1] as HTMLElement;
+                                  scrollAmount = prevChild.offsetLeft - container.scrollLeft;
+                                } else {
+                                  // Already at the first tag, scroll to the beginning
+                                  scrollAmount = -container.scrollLeft;
+                                }
+                                break;
+                              }
+                            }
+                            
+                            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                          }
+                        }}
+                        className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 transition-colors"
+                        title="Scroll left"
+                      >
+                        <ChevronLeft size={14} className="text-gray-500" />
+                      </button>
+                    )}
+                    <div
+                      ref={promptsContainerRef}
+                      className="flex gap-1 flex-1 overflow-x-auto min-w-0"
+                      style={{ 
+                        scrollbarWidth: 'none', 
+                        msOverflowStyle: 'none'
+                      }}
+                      onScroll={(e) => {
+                        const target = e.target as HTMLDivElement;
+                        setPromptsScrollPosition(target.scrollLeft);
+                      }}
+                    >
+                      {recentActions.map((prompt) => (
+                        <button
+                          key={prompt.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const newValue = inputValue + ' ' + prompt.prompt;
+                            setInputValue(newValue);
+                            if (textFieldRef.current) {
+                              textFieldRef.current.focus();
+                            }
+                          }}
+                          className="flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs text-gray-700 hover:bg-gray-100 transition-colors whitespace-nowrap flex-shrink-0"
+                        >
+                          <span>{prompt.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {recentActions.length > 0 && canScrollRight && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (promptsContainerRef.current) {
+                            const container = promptsContainerRef.current;
+                            const children = Array.from(container.children) as HTMLElement[];
+                            if (children.length === 0) return;
+                            
+                            // Find the first tag that's not fully visible
+                            let scrollAmount = 0;
+                            const containerLeft = container.scrollLeft;
+                            const containerRight = containerLeft + container.clientWidth;
+                            
+                            for (let i = 0; i < children.length; i++) {
+                              const child = children[i];
+                              const childLeft = child.offsetLeft;
+                              const childRight = childLeft + child.offsetWidth;
+                              
+                              // If this tag is partially visible or just out of view, scroll to show the next one
+                              if (childRight > containerRight || (childLeft >= containerLeft && childRight > containerRight)) {
+                                scrollAmount = childLeft - container.scrollLeft;
+                                break;
+                              }
+                              
+                              // If we're at the last tag and it's fully visible, scroll to the end
+                              if (i === children.length - 1 && childRight <= containerRight) {
+                                scrollAmount = container.scrollWidth - container.scrollLeft - container.clientWidth;
+                              }
+                            }
+                            
+                            container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                          }
+                        }}
+                        className="flex-shrink-0 p-0.5 rounded hover:bg-gray-100 transition-colors"
+                        title="Scroll right"
+                      >
+                        <ChevronRight size={14} className="text-gray-500" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -433,6 +556,7 @@ const InTextPrompter: React.FC<InTextPrompterProps> = ({ selectedText, position 
           onRemoveReference={handleRemoveReferenceFromSelector}
           onClose={() => setShowReferenceSelector(false)}
           prompterRef={prompterRef}
+          inputContainerRef={isPreviewMode ? inputContainerRef : null}
           prompterWidth={prompterWidth}
         />
       )}

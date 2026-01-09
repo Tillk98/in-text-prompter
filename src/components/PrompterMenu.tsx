@@ -1,11 +1,12 @@
 import React, { useRef, useEffect, useMemo } from 'react';
-import { Zap, Building2, Plus, Star } from 'lucide-react';
+import { Zap, Building2, Paperclip, Star } from 'lucide-react';
 import { QuickAction, SavedPrompt, CaseblinkPrompt } from '../types/prompter';
 
 interface PrompterMenuProps {
   isOpen: boolean;
   onClose: () => void;
   prompterRef: React.RefObject<HTMLDivElement>;
+  inputContainerRef?: React.RefObject<HTMLDivElement> | null;
   quickActions: QuickAction[];
   savedPrompts: SavedPrompt[];
   caseblinkPrompts: CaseblinkPrompt[];
@@ -22,6 +23,7 @@ const PrompterMenu: React.FC<PrompterMenuProps> = ({
   isOpen,
   onClose,
   prompterRef,
+  inputContainerRef,
   quickActions,
   savedPrompts,
   caseblinkPrompts,
@@ -95,34 +97,39 @@ const PrompterMenu: React.FC<PrompterMenuProps> = ({
   }, [isOpen, onClose, prompterRef]);
 
   const updateMenuPosition = () => {
-    if (isOpen && menuRef.current && prompterRef.current) {
-      const prompterRect = prompterRef.current.getBoundingClientRect();
+    if (isOpen && menuRef.current) {
+      // If inputContainerRef is provided (preview mode), position relative to input field
+      // Otherwise, position relative to entire prompter
+      const targetRef = inputContainerRef?.current || prompterRef.current;
+      if (!targetRef) return;
       
-      // Get prompter's document position: convert viewport coordinates to document coordinates
-      const prompterTop = prompterRect.top + window.scrollY;
-      const prompterLeft = prompterRect.left + window.scrollX;
-      const prompterHeight = prompterRect.height;
+      const targetRect = targetRef.getBoundingClientRect();
       
-      // Always position menu below the entire prompter (absolute positioning)
+      // Use viewport coordinates directly since we're using fixed positioning
+      const targetTop = targetRect.top;
+      const targetLeft = targetRect.left;
+      const targetHeight = targetRect.height;
+      
+      // Position menu below the target (input field in preview mode, or entire prompter otherwise)
       // Use a small gap to ensure it doesn't overlap
       const gap = 4;
-      // Position relative to prompter's document position
-      let top = prompterTop + prompterHeight + gap;
-      let left = prompterLeft;
+      // Position relative to target's viewport position
+      let top = targetTop + targetHeight + gap;
+      let left = targetLeft;
 
       // Adjust if menu would go off screen horizontally (check in viewport)
       const menuWidth = menuRef.current.offsetWidth || 240;
-      const viewportLeft = prompterRect.left;
+      const viewportLeft = targetRect.left;
       if (viewportLeft + menuWidth > window.innerWidth) {
-        left = prompterLeft - (viewportLeft + menuWidth - window.innerWidth) - 10;
+        left = targetLeft - (viewportLeft + menuWidth - window.innerWidth) - 10;
       }
       if (viewportLeft < 10) {
-        left = prompterLeft - (viewportLeft - 10);
+        left = targetLeft - (viewportLeft - 10);
       }
 
       // Adjust if menu would go off screen vertically - but keep it below
       const menuHeight = menuRef.current.offsetHeight || 200;
-      const viewportBottom = prompterRect.bottom;
+      const viewportBottom = targetRect.bottom;
       if (viewportBottom + gap + menuHeight > window.innerHeight) {
         // If there's not enough space below, reduce the menu height or scroll
         // But always keep it below the prompter
@@ -144,7 +151,7 @@ const PrompterMenu: React.FC<PrompterMenuProps> = ({
         updateMenuPosition();
       });
     }
-  }, [isOpen, prompterRef]);
+  }, [isOpen, prompterRef, inputContainerRef]);
 
   // Update position on scroll/resize
   useEffect(() => {
@@ -160,7 +167,7 @@ const PrompterMenu: React.FC<PrompterMenuProps> = ({
       window.removeEventListener('scroll', handleUpdate, false);
       window.removeEventListener('resize', handleUpdate);
     };
-  }, [isOpen, prompterRef]);
+  }, [isOpen, prompterRef, inputContainerRef]);
 
   if (!isOpen) return null;
 
@@ -210,7 +217,7 @@ const PrompterMenu: React.FC<PrompterMenuProps> = ({
   return (
     <div
       ref={menuRef}
-      className="absolute bg-white border border-gray-200 rounded-md shadow-lg z-[60] min-w-[240px] max-w-[320px] max-h-[400px] overflow-y-auto"
+      className="fixed bg-white border border-gray-200 rounded-md shadow-lg z-[60] min-w-[240px] max-w-[320px] max-h-[400px] overflow-y-auto"
       style={{ top: 0, left: 0 }}
     >
       <div className="p-2">
@@ -219,7 +226,7 @@ const PrompterMenu: React.FC<PrompterMenuProps> = ({
             <div className="mb-2">
               <MenuItem onClick={() => { onReference(); onClose(); }}>
                 <div className="flex items-center gap-2">
-                  <Plus size={14} />
+                  <Paperclip size={14} />
                   <span>Reference</span>
                 </div>
               </MenuItem>
